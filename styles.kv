@@ -1,422 +1,473 @@
-# --- Modern UI Components ---
-
-# A button with rounded corners and a subtle flat design
-<RoundedButton@Button>:
-    background_color: 0.2, 0.6, 1, 1 
-    color: 1, 1, 1, 1
-    font_size: 20
-    size_hint_y: None
-    height: 50
+<GreyBox@BoxLayout>:
     canvas.before:
         Color:
-            rgba: 0.3, 0.7, 1, 1
-        Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, 10)
-            width: 2
+            rgba: 0.1, 0.1, 0.1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
-# A container for "Cards" (Scramble, Stats, etc.)
-<CardBox@BoxLayout>:
-    orientation: 'vertical'
-    spacing: 10
-    padding: 15
-    size_hint_x: None
+<LoadingOverlay@FloatLayout>:
+    # Semi-transparent background (Simulated Blur)
     canvas.before:
         Color:
-            rgba: 1, 1, 1, 0.98
-        Line:
-            rounded_rectangle: (self.x, self.y, self.width, self.height, 15)
-            width: 0
-        Color:
-            rgba: 0, 0, 0, 0.1
-        Line:
-            rounded_rectangle: (self.x + 2, self.y - 2, self.width, self.height, 15)
-            width: 0
+            rgba: 0, 0, 0, 0.85
+        Rectangle:
+            pos: self.pos
+            size: self.size
 
-# --- Main Screens ---
+    # Centered Loading GIF
+    Image:
+        source: 'loading.gif'
+        size_hint: None, None
+        size: 150, 150
+        pos_hint: {'center_x': 0.5, 'center_y': 0.5}
+        allow_stretch: True
+        anim_loop: -1  # FIXED: Use -1 for infinite loop instead of True
+
+<SplashScreen>:
+    name: 'splash'
+    # Solid White Background
+    canvas.before:
+        Color:
+            rgba: 1, 1, 1, 1
+        Rectangle:
+            pos: self.pos
+            size: self.size
+
+    BoxLayout:
+        orientation: 'vertical'
+        padding: 20
+        spacing: 10
+        size_hint_y: 1
+
+        Label:
+            text: "RCube Timer"
+            font_size: 50
+            color: 0, 0, 0, 1 # Black text on white background
+            size_hint_y: None
+            height: 100
+
+        Label:
+            text: "Initializing..."
+            font_size: 20
+            color: 0.5, 0.5, 0.5, 1
+            size_hint_y: None
+            height: 40
 
 <TimerScreen>:
     name: 'timer'
     canvas.before:
         Color:
-            rgba: 0.1, 0.12, 0.16, 1 
+            rgba: 0, 0, 0, 1
         Rectangle:
             pos: self.pos
             size: self.size
-    
+
+    # Main Layout
     BoxLayout:
         orientation: 'vertical'
         padding: 20
-        spacing: 20
+        spacing: 10
         size_hint_y: 1
-        
-        # 1. Scramble Card
-        # REMOVED size_hint_y so it auto-sizes to fit the label
-        CardBox:
-            Label:
-                id: scramble_label
-                text: "Loading Scramble..."
-                # text_size: self.size forces the label to fit the box exactly
-                text_size: self.size
-                color: 0.2, 0.2, 0.2, 1
-                halign: 'center'
-                valign: 'middle'
-        
+
+        # 1. Scramble Display (Top)
+        Label:
+            id: scramble_label
+            text: "Loading Scramble..."
+            font_size: 14
+            color: 0, 1, 1, 1
+            halign: 'center'
+            valign: 'middle'
+            size_hint_y: 0.1
+            text_size: self.size
+
         # 2. Main Content Area
         FloatLayout:
-            size_hint_y: 0.65
-            
+            size_hint_y: 0.8
+
             # Center Column: Timer
             BoxLayout:
                 orientation: 'vertical'
-                spacing: 20
+                spacing: 10
                 pos_hint: {'center_x': 0.5, 'center_y': 0.5}
-                size_hint_x: 0.8
+                size_hint_x: 0.7
                 size_hint_y: 0.9
-                
+
                 Label:
                     id: time_label
                     text: "Ready"
-                    font_size: 100
+                    font_size: 90
                     color: 1, 1, 1, 1
                     size_hint_y: 0.7
-                
+
                 # Status, LED, Delete
                 BoxLayout:
                     orientation: 'horizontal'
                     size_hint_y: None
-                    height: 45
-                    spacing: 20
-                    
+                    height: 40
+                    spacing: 10
+
                     Label:
                         id: status_label
                         text: "Hold Spacebar"
-                        font_size: 20
+                        font_size: 18
                         color: 0.8, 0.8, 0.8, 1
                         size_hint_x: None
-                        width: 180
-                        halign: 'center'
-                        
+                        width: 150
+
                     LedIndicator:
                         id: led
                         size_hint: None, None
-                        size: 30, 30
+                        size: 20, 20
                         pos_hint: {'center_y': 0.5}
-                    
-                    RoundedButton:
+
+                    Button:
                         id: delete_btn
                         text: "Delete Last"
-                        font_size: 18
+                        font_size: 14
                         size_hint_x: None
-                        width: 160
+                        width: 130
                         disabled: True
                         on_press: root.delete_last_solve()
-                
+                        background_color: 0.5, 0.2, 0.2, 1
+                        color: 1, 1, 1, 1
+
                 # Quick Stats
-                # Increased height to 180 to ensure Ao3/Ao12 fits
-                CardBox:
+                Label:
+                    id: quick_stats_label
+                    text: "Solves: 0"
+                    font_size: 22
+                    color: 0.7, 0.7, 0.7, 1
+                    halign: 'left'
+                    valign: 'top'
                     size_hint_y: None
-                    min_height: 180
-                    Label:
-                        id: quick_stats_label
-                        text: "Solves: 0"
-                        # text_size: self.size forces label to fit
-                        text_size: self.size
-                        color: 0.2, 0.2, 0.2, 1
-                        halign: 'left'
-                        valign: 'middle'
-                        text_size: self.size
+                    height: 120
+                    text_size: self.size
 
             # Right Column: Recent Times
             BoxLayout:
                 orientation: 'vertical'
                 size_hint_x: None
-                width: 150
+                width: 120
                 size_hint_y: 0.9
                 pos_hint: {'right': 1, 'center_y': 0.5}
-                
-                Label:
-                    text: "RECENT"
-                    font_size: 14
-                    color: 0.6, 0.6, 0.6, 1
-                    size_hint_y: None
-                    height: 30
-                    halign: 'center'
-                
+
                 Label:
                     id: recent_times_label
                     text: ""
-                    font_size: 22
-                    color: 0.2, 0.2, 0.2, 1
-                    halign: 'center'
+                    font_size: 18
+                    color: 0.6, 0.6, 0.6, 1
+                    halign: 'right'
                     valign: 'top'
                     text_size: self.size
 
         # 3. Bottom Bar
         BoxLayout:
             orientation: 'horizontal'
-            size_hint_y: 0.25
-            spacing: 20
-            padding: 20
-            canvas.before:
-                Color:
-                    rgba: 0.05, 0.05, 0.05, 0.1
-                Rectangle:
-                    pos: self.pos
-                    size: self.size
-            
-            RoundedButton:
+            size_hint_y: 0.1
+            spacing: 10
+
+            Button:
                 text: "Statistics"
-                font_size: 20
+                font_size: 18
+                background_color: 0.2, 0.4, 0.8, 1
+                color: 1, 1, 1, 1
                 on_release: app.root.transition.direction = 'right'; app.root.current = 'stats'
-                
-            RoundedButton:
+
+            Button:
                 text: "Settings"
-                font_size: 20
+                font_size: 18
+                background_color: 0.2, 0.2, 0.2, 1
+                color: 1, 1, 1, 1
                 on_release: app.root.transition.direction = 'right'; app.root.current = 'settings'
+
+    # Loading Overlay (Hidden by default)
+    LoadingOverlay:
+        id: loading_overlay
+        opacity: 0 # Invisible initially
+        disabled: True
 
 <StatsScreen>:
     name: 'stats'
     canvas.before:
         Color:
-            rgba: 0.1, 0.12, 0.16, 1 
+            rgba: 0, 0, 0, 1
         Rectangle:
             pos: self.pos
             size: self.size
-            
+
     BoxLayout:
         orientation: 'vertical'
-        padding: 25
-        spacing: 20
+        padding: 20
+        spacing: 15
         size_hint_y: 1
-        
+
         Label:
             id: stats_title
-            text: "Statistics" 
-            font_size: 36
+            text: "Statistics (3x3)"
+            font_size: 30
             color: 1, 1, 1, 1
             size_hint_y: None
-            height: 60
-            
-        # Graph Card - Using 0.45 ratio
-        CardBox:
-            size_hint_y: 0.45
+            height: 50
+
+        GreyBox:
+            orientation: 'vertical'
+            size_hint_y: 0.6
+
             Image:
                 id: graph_image
                 allow_stretch: True
                 keep_ratio: False
-                
-        # Stats Text Card - Using 0.35 ratio (increased from 0.3)
-        CardBox:
-            size_hint_y: 0.35
+
+        GreyBox:
+            orientation: 'vertical'
+            size_hint_y: 0.4
+            padding: 10
+            spacing: 5
+
             Label:
                 id: stats_label
                 text: "Solves: 0\nAvg: --\nBest: --"
-                # text_size: self.size
-                text_size: self.size
                 font_size: 18
                 halign: 'left'
                 valign: 'top'
-                color: 0.2, 0.2, 0.2, 1
-                
-        RoundedButton:
+                text_size: self.size
+                color: 1, 1, 1, 1
+
+        Button:
             text: "Back to Timer"
             font_size: 20
             size_hint_y: None
-            height: 60
+            height: 50
+            background_color: 0.3, 0.3, 0.3, 1
+            color: 1, 1, 1, 1
             on_release: app.root.transition.direction = 'left'; app.root.current = 'timer'
 
 <SettingsScreen>:
     name: 'settings'
     canvas.before:
         Color:
-            rgba: 0.1, 0.12, 0.16, 1 
+            rgba: 0, 0, 0, 1
         Rectangle:
             pos: self.pos
             size: self.size
-            
+
     BoxLayout:
         orientation: 'vertical'
-        padding: 25
+        padding: 20
         spacing: 20
         size_hint_y: 1
-        
+
         Label:
             text: "Settings"
-            font_size: 36
+            font_size: 30
             color: 1, 1, 1, 1
             size_hint_y: None
-            height: 60
-            
-        # CardBox - Increased ratio to 0.7 to fit buttons
-        CardBox:
-            size_hint_y: 0.7
-            spacing: 25
-            
-            RoundedButton:
+            height: 50
+
+        BoxLayout:
+            orientation: 'vertical'
+            spacing: 20
+            size_hint_y: None
+            height: 250
+
+            Button:
                 text: "WCA"
                 font_size: 24
+                background_color: 0.2, 0.6, 0.2, 1
+                color: 1, 1, 1, 1
                 on_release: app.root.transition.direction = 'right'; app.root.current = 'puzzle_selector'
-            
-            RoundedButton:
+
+            Button:
                 text: "Trainer"
                 font_size: 24
-                disabled: True
-            
-            RoundedButton:
+                background_color: 0.6, 0.2, 0.6, 1
+                color: 1, 1, 1, 1
+                on_release: app.root.transition.direction = 'right'; app.root.current = 'trainer_selector'
+
+            Button:
                 text: "Reset All Statistics"
-                background_color: 0.8, 0.3, 0.3, 1
+                font_size: 20
+                background_color: 1, 0.3, 0.3, 1
                 color: 1, 1, 1, 1
                 on_press: app.root.get_screen('timer').reset_all_stats()
-                
-            RoundedButton:
+
+            Button:
                 text: "Back to Timer"
                 font_size: 20
+                background_color: 0.3, 0.3, 0.3, 1
+                color: 1, 1, 1, 1
                 on_release: app.root.transition.direction = 'left'; app.root.current = 'timer'
 
 <PuzzleSelectorScreen>:
     name: 'puzzle_selector'
     canvas.before:
         Color:
-            rgba: 0.1, 0.12, 0.16, 1 
+            rgba: 0, 0, 0, 1
         Rectangle:
             pos: self.pos
             size: self.size
-            
+
     BoxLayout:
         orientation: 'vertical'
-        padding: 25
-        spacing: 20
+        padding: 20
+        spacing: 10
         size_hint_y: 1
-        
+
         Label:
             text: "Select WCA Puzzle"
             font_size: 30
             color: 1, 1, 1, 1
             size_hint_y: None
-            height: 60
-            
+            height: 50
+
         ScrollView:
             size_hint_y: 1
-            
+
             GridLayout:
                 id: puzzle_grid
                 cols: 2
-                spacing: 20
+                spacing: 10
                 size_hint_y: None
                 height: self.minimum_height
-                
-                RoundedButton:
+
+                # Buttons for puzzles
+                Button:
                     text: "2x2x2"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('2x2x2')
-                    
-                RoundedButton:
+
+                Button:
                     text: "3x3x3"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('3x3x3')
-                    
-                RoundedButton:
+
+                Button:
                     text: "4x4x4"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('4x4x4')
-                    
-                RoundedButton:
+
+                Button:
                     text: "5x5x5"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('5x5x5')
-                    
-                RoundedButton:
+
+                Button:
                     text: "6x6x6"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('6x6x6')
-                    
-                RoundedButton:
+
+                Button:
                     text: "7x7x7"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('7x7x7')
-                    
-                RoundedButton:
+
+                Button:
                     text: "Pyraminx"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('Pyraminx')
-                    
-                RoundedButton:
+
+                Button:
                     text: "Megaminx"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('Megaminx')
-                    
-                RoundedButton:
+
+                Button:
                     text: "Square-1"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('Square-1')
-                    
-                RoundedButton:
+
+                Button:
                     text: "Skewb"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('Skewb')
-                    
-                RoundedButton:
+
+                Button:
                     text: "Clock"
                     font_size: 20
                     size_hint_y: None
-                    height: 60
+                    height: 50
+                    background_color: 0.2, 0.2, 0.2, 1
+                    color: 1, 1, 1, 1
                     on_press: app.root.get_screen('timer').switch_puzzle('Clock')
-                    
-        RoundedButton:
+
+        Button:
             text: "Back to Settings"
             font_size: 20
             size_hint_y: None
-            height: 60
+            height: 50
+            background_color: 0.3, 0.3, 0.3, 1
+            color: 1, 1, 1, 1
             on_release: app.root.transition.direction = 'left'; app.root.current = 'settings'
 
 <TrainerSelectorScreen>:
     name: 'trainer_selector'
     canvas.before:
         Color:
-            rgba: 0.1, 0.12, 0.16, 1 
+            rgba: 0, 0, 0, 1
         Rectangle:
             pos: self.pos
             size: self.size
-            
+
     BoxLayout:
         orientation: 'vertical'
-        padding: 25
-        spacing: 20
+        padding: 20
+        spacing: 10
         size_hint_y: 1
-        
+
         Label:
             text: "Select Trainer Mode"
             font_size: 30
             color: 1, 1, 1, 1
             size_hint_y: None
-            height: 60
-            
+            height: 50
+
         ScrollView:
             size_hint_y: 1
-            
+
             BoxLayout:
                 orientation: 'vertical'
-                spacing: 20
+                spacing: 10
                 size_hint_y: None
                 height: self.minimum_height
 
@@ -427,153 +478,153 @@
                     color: 0.8, 0.8, 0.8, 1
                     size_hint_y: None
                     height: 40
-                    
+
                 GridLayout:
                     cols: 2
-                    spacing: 20
+                    spacing: 10
                     size_hint_y: None
                     height: self.minimum_height
-                    
+                    # (Trainer buttons - same as before)
                     Button:
                         text: "3BLD"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 3BLD')
-                        
+
                     Button:
                         text: "Edges"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 Edges')
-                        
+
                     Button:
                         text: "Corners"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 Corners')
-                        
+
                     Button:
                         text: "LL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 LL')
-                        
+
                     Button:
                         text: "F2L"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 F2L')
-                        
+
                     Button:
                         text: "Cross (Easy)"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 Cross (Easy)')
-                        
+
                     Button:
-                        text: "Cross (Hard)"
+                        text: "Cross (Difficult)"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 Cross (Difficult)')
-                        
+
                     Button:
                         text: "LSLL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 LSLL')
-                        
+
                     Button:
                         text: "ZBLL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 ZBLL')
-                        
+
                     Button:
                         text: "ZZLL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 ZZLL')
-                        
+
                     Button:
                         text: "ZBLS"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 ZBLS')
-                        
+
                     Button:
                         text: "LSE"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 LSE')
-                        
+
                     Button:
                         text: "CMLL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 CMLL')
-                        
+
                     Button:
                         text: "CLL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 CLL')
-                        
+
                     Button:
                         text: "ELL"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 ELL')
-                        
+
                     Button:
                         text: "EO Line"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('3x3x3 EO Line')
@@ -585,45 +636,45 @@
                     color: 0.8, 0.8, 0.8, 1
                     size_hint_y: None
                     height: 40
-                    
+
                 GridLayout:
                     cols: 2
-                    spacing: 20
+                    spacing: 10
                     size_hint_y: None
                     height: self.minimum_height
-                    
+
                     Button:
                         text: "4x4x4 Edges"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('4x4x4 Edges')
-                        
+
                     Button:
                         text: "5x5x5 Edges"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('5x5x5 Edges')
-                        
+
                     Button:
                         text: "6x6x6 Edges"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('6x6x6 Edges')
-                        
+
                     Button:
                         text: "7x7x7 Edges"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('7x7x7 Edges')
@@ -635,79 +686,39 @@
                     color: 0.8, 0.8, 0.8, 1
                     size_hint_y: None
                     height: 40
-                    
+
                 GridLayout:
                     cols: 2
-                    spacing: 20
+                    spacing: 10
                     size_hint_y: None
                     height: self.minimum_height
-                    
+
                     Button:
                         text: "Face Turn Metric"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('Square-1 Face Turn Metric')
-                        
+
                     Button:
                         text: "Twist Metric"
                         font_size: 18
                         size_hint_y: None
-                        height: 50
+                        height: 45
                         background_color: 0.2, 0.2, 0.2, 1
                         color: 1, 1, 1, 1
                         on_press: app.root.get_screen('timer').switch_puzzle('Square-1 Twist Metric')
-                    
-        RoundedButton:
+
+        Button:
             text: "Back to Settings"
             font_size: 20
             size_hint_y: None
-            height: 60
-            on_release: app.root.transition.direction = 'left'; app.root.current = 'settings'
-
-<SplashScreen>:
-    name: 'splash'
-    
-    BoxLayout:
-        orientation: 'vertical'
-        padding: 20
-        spacing: 10
-        size_hint_y: 1
-        canvas.before:
-            Color:
-                rgba: 0.1, 0.12, 0.16, 1
-            Rectangle:
-                pos: self.pos
-                size: self.size
-        
-        Label:
-            text: "RCube Timer"
-            font_size: 50
+            height: 50
+            background_color: 0.3, 0.3, 0.3, 1
             color: 1, 1, 1, 1
-            size_hint_y: None
-            height: 120
-            
-        CardBox:
-            size_hint_y: None
-            height: 180
-            spacing: 20
-            
-            Label:
-                id: splash_status
-                text: "Initializing..."
-                font_size: 20
-                color: 0.2, 0.2, 0.2, 1
-                halign: 'center'
-                valign: 'middle'
-                
-            Label:
-                id: splash_detail
-                text: ""
-                font_size: 16
-                color: 0.6, 0.6, 0.6, 1
-                halign: 'center'
+            on_release: app.root.transition.direction = 'left'; app.root.current = 'settings'
 
 <LedIndicator@Widget>:
     canvas.before:
