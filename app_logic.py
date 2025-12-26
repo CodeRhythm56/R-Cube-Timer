@@ -1,11 +1,13 @@
 import io
 import time
+import threading
 from kivy.uix.screenmanager import Screen
 from kivy.clock import Clock
 from kivy.core.window import Window
 from kivy.core.image import Image as CoreImage
 from kivy.graphics import Color as KivyColor
 from kivy.app import App
+from kivy.animation import Animation
 
 # Imports for all WCA puzzles
 from pyTwistyScrambler import (
@@ -25,7 +27,6 @@ from matplotlib.backends.backend_agg import FigureCanvasAgg
 PUZZLE_CONFIG = {
     "2x2x2": {"module": scrambler222, "func": "get_WCA_scramble", "args": {}},
     "3x3x3": {"module": scrambler333, "func": "get_WCA_scramble", "args": {}},
-    # RESTORED n=40 for 4x4x4
     "4x4x4": {"module": scrambler444, "func": "get_WCA_scramble", "args": {"n": 40}},
     "5x5x5": {"module": scrambler555, "func": "get_WCA_scramble", "args": {"n": 60}},
     "6x6x6": {"module": scrambler666, "func": "get_WCA_scramble", "args": {"n": 80}},
@@ -39,7 +40,6 @@ PUZZLE_CONFIG = {
 
 # Configuration for Trainer Modes
 TRAINER_CONFIG = {
-    # 3x3x3 Trainer Modes (scrambler333)
     "3x3x3 3BLD": {"module": scrambler333, "func": "get_3BLD_scramble", "args": {}},
     "3x3x3 Edges": {"module": scrambler333, "func": "get_edges_scramble", "args": {}},
     "3x3x3 Corners": {"module": scrambler333, "func": "get_corners_scramble", "args": {}},
@@ -56,14 +56,10 @@ TRAINER_CONFIG = {
     "3x3x3 CLL": {"module": scrambler333, "func": "get_CLL_scramble", "args": {}},
     "3x3x3 ELL": {"module": scrambler333, "func": "get_ELL_scramble", "args": {}},
     "3x3x3 EO Line": {"module": scrambler333, "func": "get_EOLine_scramble", "args": {}},
-
-    # NxNxN Trainer Modes (Edges)
     "4x4x4 Edges": {"module": scrambler444, "func": "get_edges_scramble", "args": {"n": 8}},
     "5x5x5 Edges": {"module": scrambler555, "func": "get_edges_scramble", "args": {"n": 8}},
     "6x6x6 Edges": {"module": scrambler666, "func": "get_edges_scramble", "args": {"n": 8}},
     "7x7x7 Edges": {"module": scrambler777, "func": "get_edges_scramble", "args": {"n": 8}},
-
-    # Square-1 Trainer Modes
     "Square-1 Face Turn Metric": {"module": squareOneScrambler, "func": "get_face_turn_metric_scramble",
                                   "args": {"n": 40}},
     "Square-1 Twist Metric": {"module": squareOneScrambler, "func": "get_twist_metric_scramble", "args": {"n": 20}},
@@ -76,28 +72,14 @@ class SplashScreen(Screen):
         self.main_sm = None
 
     def on_enter(self):
-        Clock.schedule_once(self.check_first_run, 0.1)
+        Clock.schedule_once(self.start_fade_out, 1.0)
 
-    def check_first_run(self, dt):
-        store = App.get_running_app().store
+    def start_fade_out(self, dt):
+        anim = Animation(opacity=0, duration=0.5)
+        anim.bind(on_complete=self.switch_to_timer)
+        anim.start(self)
 
-        if not store.exists('all_data'):
-            # First Run
-            self.ids.splash_status.text = "First Run: Generating Scrambles..."
-            self.ids.splash_detail.text = "Please wait, this only happens once."
-            Clock.schedule_once(self.run_first_time_setup, 0.1)
-        else:
-            self.go_to_timer()
-
-    def run_first_time_setup(self, dt):
-        timer_screen = self.main_sm.get_screen('timer')
-        timer_screen._generate_initial_batch(None)
-
-        self.ids.splash_status.text = "Setup Complete!"
-        # HELPER METHOD TO FIX SYNTAX ERROR
-        Clock.schedule_once(self.go_to_timer, 0.5)
-
-    def go_to_timer(self, dt):
+    def switch_to_timer(self, *args):
         self.main_sm.current = 'timer'
 
 
@@ -114,11 +96,17 @@ class TimerScreen(Screen):
         self.hold_start_time = 0
         self.hold_event = None
 
+        # FIX: Flag to prevent multiple generation threads running at once
+        self.is_generating = False
+
         # Data & Puzzle State
         self.solve_data = {}
         self.current_puzzle = "3x3x3"
         self.current_scramble = ""
         self.scramble_queue = []
+
+        # Performance: Cache the LED color instruction
+        self.led_color_instruction = None
 
         # Load Data on Init
         Clock.schedule_once(self._load_data, 0)
@@ -133,20 +121,42 @@ class TimerScreen(Screen):
         self._keyboard.unbind(on_key_up=self._on_keyboard_up)
         self._keyboard = None
 
+    def show_loading(self):
+        overlay = self.ids.loading_overlay
+        if overlay.parent != self:
+            self.add_widget(overlay)
+
+        overlay.opacity = 1
+        overlay.disabled = False
+
+    def hide_loading(self):
+        overlay = self.ids.loading_overlay
+        # Animate out then remove
+        anim = Animation(opacity=0, duration=0.2)
+
+        def on_anim_finish(*args):
+            if overlay.parent == self:
+                self.remove_widget(overlay)
+
+        anim.bind(on_complete=on_anim_finish)
+        anim.start(overlay)
+
     def _load_data(self, dt):
         store = App.get_running_app().store
 
-        # Load Solve Data
-        try:
-            loaded_data = store.get('all_data')['value']
-            self.solve_data = loaded_data
-            self.current_puzzle = store.get('current_puzzle')['value']
-        except KeyError:
-            # Initialize for both WCA and Trainer configs
+        # Initialize empty data structures if they don't exist
+        if not store.exists('all_data'):
             for puz in PUZZLE_CONFIG.keys():
                 self.solve_data[puz] = {'times': [], 'scrambles': []}
             for puz in TRAINER_CONFIG.keys():
                 self.solve_data[puz] = {'times': [], 'scrambles': []}
+        else:
+            self.solve_data = store.get('all_data')['value']
+
+            if store.exists('current_puzzle'):
+                self.current_puzzle = store.get('current_puzzle')['value']
+            else:
+                self.current_puzzle = "3x3x3"
 
         if self.current_puzzle not in self.solve_data:
             self.current_puzzle = "3x3x3"
@@ -161,23 +171,38 @@ class TimerScreen(Screen):
         # Initialize UI
         self._update_titles()
 
-        if not self.scramble_queue:
-            self.ids.scramble_label.text = "Generating Scrambles..."
-            Clock.schedule_once(lambda dt: self._fill_scramble_queue(50), 0)
-        else:
-            self.generate_new_scramble()
+        # Cache LED Reference
+        led_canvas = self.ids.led.canvas.before
+        for child in led_canvas.children:
+            if isinstance(child, KivyColor):
+                self.led_color_instruction = child
+                break
 
         self.update_stats_label()
         self.update_recent_times()
         self.update_graph()
         self.set_led_color(0.5, 0.5, 0.5)
 
-    def _generate_initial_batch(self, dt):
-        print("First Run: Generating scramble queues for WCA and Trainer puzzles...")
-        store = App.get_running_app().store
-        all_queues = {}
+        # Ensure Loading Overlay is NOT visible on startup
+        self.hide_loading()
 
-        # Combine WCA and Trainer Configs
+        # CHECK IF FIRST RUN (Data Generation Needed)
+        if not store.exists('all_data'):
+            self.show_loading()
+            # Start thread for generation
+            threading.Thread(target=self._run_generation_thread).start()
+        else:
+            # Normal load, just get a scramble if queue is empty
+            if not self.scramble_queue:
+                self.ids.scramble_label.text = "Generating Scrambles..."
+                # Use threaded generation
+                self._fill_scramble_queue(50)
+            else:
+                self.generate_new_scramble()
+
+    def _run_generation_thread(self):
+        """Generates scramble data in a background thread for First Run."""
+        all_queues = {}
         all_configs = {**PUZZLE_CONFIG, **TRAINER_CONFIG}
 
         for puz_name, config in all_configs.items():
@@ -185,13 +210,74 @@ class TimerScreen(Screen):
             func_name = config['func']
             args = config['args']
             func = getattr(module, func_name)
-
             all_queues[puz_name] = [func(**args) for _ in range(50)]
 
+        # Schedule the UI update on the main thread
+        Clock.schedule_once(lambda dt: self._finish_setup(all_queues), 0)
+
+    def _finish_setup(self, all_queues):
+        """Called after thread finishes."""
+        store = App.get_running_app().store
         store.put('all_data', value=self.solve_data)
         store.put('current_puzzle', value=self.current_puzzle)
         store.put('scramble_queues', value=all_queues)
-        print("Setup Complete.")
+
+        # Load the queue for the current puzzle
+        self.scramble_queue = all_queues.get(self.current_puzzle, [])
+        self.generate_new_scramble()
+
+        # Hide the loading screen
+        self.hide_loading()
+        self.is_generating = False
+
+    def _fill_scramble_queue(self, num=50):
+        """
+        Generates scrambles for current puzzle in a background thread.
+        Uses a flag to prevent duplicate threads.
+        """
+        # Safety check: If we are already generating, don't start another one
+        if self.is_generating:
+            return
+
+        # Set flag and show UI immediately
+        self.is_generating = True
+        self.show_loading()
+
+        # Start the generation in a separate thread
+        threading.Thread(target=self._run_single_generation_thread, args=(num,)).start()
+
+    def _run_single_generation_thread(self, num):
+        """
+        The actual heavy lifting. Runs in background.
+        """
+        all_configs = {**PUZZLE_CONFIG, **TRAINER_CONFIG}
+
+        if self.current_puzzle not in all_configs:
+            return
+
+        config = all_configs[self.current_puzzle]
+        module = config['module']
+        func_name = config['func']
+        args = config['args']
+
+        func = getattr(module, func_name)
+        new_scrambles = [func(**args) for _ in range(num)]
+
+        # Return to main thread to update UI
+        Clock.schedule_once(lambda dt: self._finish_single_generation(new_scrambles), 0)
+
+    def _finish_single_generation(self, new_scrambles):
+        """
+        Called on Main Thread after generation is done.
+        """
+        self.scramble_queue.extend(new_scrambles)
+        self._save_queue()
+
+        self.is_generating = False
+        self.hide_loading()
+
+        if self.ids.scramble_label.text == "Generating Scrambles...":
+            self.generate_new_scramble()
 
     def _save_data(self):
         store = App.get_running_app().store
@@ -204,7 +290,6 @@ class TimerScreen(Screen):
             queues = store.get('scramble_queues')['value']
         except KeyError:
             queues = {}
-
         queues[self.current_puzzle] = self.scramble_queue
         store.put('scramble_queues', value=queues)
 
@@ -212,7 +297,6 @@ class TimerScreen(Screen):
         if self.running:
             return
 
-        # SAFETY CHECK: Initialize data if this puzzle key doesn't exist yet
         if puzzle_name not in self.solve_data:
             self.solve_data[puzzle_name] = {'times': [], 'scrambles': []}
 
@@ -230,13 +314,16 @@ class TimerScreen(Screen):
 
         if not self.scramble_queue:
             self.ids.scramble_label.text = "Generating Scrambles..."
-            Clock.schedule_once(lambda dt: self._fill_scramble_queue(50), 0)
+            # This will now show loading screen properly
+            self._fill_scramble_queue(50)
         else:
             self.generate_new_scramble()
 
         self.update_stats_label()
         self.update_recent_times()
-        self.update_graph()
+        if self.manager.current == 'stats':
+            self.update_graph()
+
         self._save_data()
         self.manager.current = 'timer'
 
@@ -290,34 +377,8 @@ class TimerScreen(Screen):
         self.set_led_color(0.5, 0.5, 0.5)
 
     def set_led_color(self, r, g, b):
-        led_canvas = self.ids.led.canvas.before
-        for child in led_canvas.children:
-            if isinstance(child, KivyColor):
-                child.rgba = (r, g, b, 1)
-                return
-
-    def _fill_scramble_queue(self, num=50):
-        # Check both WCA and Trainer configs
-        all_configs = {**PUZZLE_CONFIG, **TRAINER_CONFIG}
-
-        if self.current_puzzle not in all_configs:
-            print(f"Error: Puzzle {self.current_puzzle} not found in configs.")
-            return
-
-        config = all_configs[self.current_puzzle]
-        module = config['module']
-        func_name = config['func']
-        args = config['args']
-
-        func = getattr(module, func_name)
-        new_scrambles = [func(**args) for _ in range(num)]
-
-        self.scramble_queue.extend(new_scrambles)
-
-        self._save_queue()
-
-        if self.ids.scramble_label.text == "Generating Scrambles...":
-            self.generate_new_scramble()
+        if self.led_color_instruction:
+            self.led_color_instruction.rgba = (r, g, b, 1)
 
     def generate_new_scramble(self):
         if not self.scramble_queue:
@@ -327,7 +388,8 @@ class TimerScreen(Screen):
         self.ids.scramble_label.text = self.current_scramble
 
         if len(self.scramble_queue) < 10:
-            Clock.schedule_once(lambda dt: self._fill_scramble_queue(50), 0.1)
+            # This will now show loading screen properly
+            self._fill_scramble_queue(50)
 
     def start_timer(self):
         self.running = True
@@ -360,7 +422,9 @@ class TimerScreen(Screen):
         self.update_stats_label()
         self.update_recent_times()
         self.generate_new_scramble()
-        Clock.schedule_once(lambda dt: self.update_graph(), 0.05)
+
+        if self.manager.current == 'stats':
+            self.update_graph()
 
         self._save_data()
 
@@ -378,13 +442,14 @@ class TimerScreen(Screen):
 
             self.update_stats_label()
             self.update_recent_times()
-            Clock.schedule_once(lambda dt: self.update_graph(), 0.05)
-            self.ids.delete_btn.disabled = True
 
+            if self.manager.current == 'stats':
+                self.update_graph()
+
+            self.ids.delete_btn.disabled = True
             self._save_data()
 
     def reset_all_stats(self):
-        # Reset WCA and Trainer configs
         for puz in PUZZLE_CONFIG.keys():
             self.solve_data[puz] = {'times': [], 'scrambles': []}
         for puz in TRAINER_CONFIG.keys():
@@ -493,7 +558,9 @@ class TimerScreen(Screen):
 
 
 class StatsScreen(Screen):
-    pass
+    def on_enter(self, *args):
+        timer_screen = self.manager.get_screen('timer')
+        timer_screen.update_graph()
 
 
 class SettingsScreen(Screen):
